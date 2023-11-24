@@ -1,0 +1,107 @@
+#custom-cpu, #custom-io, #custom-memory {
+    padding: 0 3px;
+}
+
+#custom-netspeed {
+    color: #bfbfbf;
+}
+
+#custom-netspeed.lucky {
+    color: #7fbfff;
+}
+
+#custom-netspeed.all {
+    color: #ff9fbf;
+}
+
+#custom-netspeed.most {
+    color: #ffbf7f;
+}
+
+#custom-netspeed.lot {
+    color: #bfff9f;
+}
+
+#custom-io {
+    background-color: #003f3f;
+}
+
+#custom-cpu {
+    background-color: #3f3f00;
+}
+
+#custom-io.full {
+    color: #ff5f5f;
+}
+
+#custom-cpu.full {
+    color: #ff5f5f;
+}
+
+#custom-heat {
+    background-color: #00005f;
+}
+
+#custom-heat.fire {
+    color: #ff5f5f;
+}
+
+#custom-heat.red {
+    color: #ff5f5f;
+}
+
+#custom-heat.orange {
+    color: #ff9f5f;
+}
+
+#custom-memory {
+    background-color: #3f005f;
+}
+
+#custom-memory.filling {
+    color: #ffff00;
+}
+
+#custom-memory.filled {
+    color: #ff5f5f;
+}
+
+#custom-ip {
+    background-color: #003f5f;
+}
+
+#custom-ip.work {
+    color: #af5f7f;
+}
+
+#custom-ip.home {
+    color: #af5fbf;
+}
+
+#custom-ip.hotspot {
+    color: #af5fff;
+}
+
+#custom-ip.alien {
+    color: #ff5f5f;
+}
+
+#custom-ip.inter.work {
+    color: #5fff7f;
+}
+
+#custom-ip.inter.hotspot {
+    color: #5fffbf;
+}
+
+#custom-ip.inter.home {
+    color: #5fffff;
+}
+
+#custom-ip.inter.alien {
+    color: #ffaf5f;
+}
+
+#custom-load {
+    background-color: #3f0000;
+}

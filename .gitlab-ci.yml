@@ -1,0 +1,127 @@
+stages:
+- build
+- test
+- docs
+- prepare_release
+- release
+
+build:
+  stage: build
+  image: "python:3.9-alpine"
+  before_script:
+  - apk add gcc python3-dev musl-dev linux-headers
+  - python3 -m pip install wheel setuptools build
+  - python3 -m pip install -U -r requirements.txt
+  script:
+  - python3 -m pip install -U .
+  only:
+    refs:
+    - testing
+
+pytest:
+  image: "python:3.9-alpine"
+  stage: test
+  needs:
+  - job: build
+  before_script:
+  - apk add gcc python3-dev musl-dev linux-headers
+  - python3 -m pip install -U pytest pytest-cov
+  - python3 -m pip install -U -r requirements.txt
+  - python3 -m pip install -U .
+  - cd tests
+  script:
+  - python -m coverage run -m pytest --junitxml=report.xml .
+  - python -m coverage xml
+  - python -m coverage report
+  after_script:
+  - cd ..
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: always
+    reports:
+      junit: tests/report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: tests/coverage.xml
+  only:
+    refs:
+    - testing
+
+pages:
+  image: "python:3.9-alpine"
+  stage: docs
+  before_script:
+  - export PATH="${PATH}:${HOME}/.local/bin"
+  - apk add gcc python3-dev musl-dev linux-headers
+  - python3 -m pip install -U sphinx
+  - python3 -m pip install -r docs/requirements.txt
+  - python3 -m pip install -U -r requirements.txt
+  - python3 -m pip install -U .
+  - mkdir -p public
+  script:
+  - sphinx-build -b html docs public
+  artifacts:
+    paths:
+    - public
+  only:
+    refs:
+    - release
+
+pypi:
+  image: "python:3.9"
+  stage: release
+  before_script:
+  - export PATH="${PATH}:${HOME}/.local/bin"
+  - apk add gcc python3-dev musl-dev linux-headers
+  - python3 -m pip install -U setuptools twine build
+  - python3 -m pip install -U .
+  - rm -rf build dist
+  - python -m build
+  script:
+  - >
+      python -m twine upload
+      --username ${CI_REGISTRY_USER}
+      --password ${CI_JOB_TOKEN}
+      --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
+      --skip-existing --non-interactive
+      dist/*
+  only:
+    refs:
+    - release
+
+prepare_job:
+  stage: prepare_release
+  script:
+  - >
+      echo
+      "TAG=v$(grep '__version__' src/pywaymon/__about__.py
+      | cut -d\' -f2
+      | cut -d\" -f2)"
+      >> variables.env
+  artifacts:
+    reports:
+      dotenv: variables.env
+  only:
+    refs:
+    - release
+
+release_job:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+  - job: prepare_job
+    artifacts: true
+  script:
+  - echo "running release_job for $TAG"
+  release:
+    name: 'Release $TAG'
+    description: './CHANGELOG.md'
+    tag_name: '$TAG'
+    ref: '$CI_COMMIT_SHA'
+    assets:
+      links:
+      - name: 'Gitlab pip repository'
+        url: '${CI_PROJECT_URL}'
+  only:
+    refs:
+    - release

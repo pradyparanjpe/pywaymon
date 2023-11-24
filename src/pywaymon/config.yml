@@ -1,0 +1,30 @@
+table:
+  colors:
+    title: "#ffafaf"
+    row_name: "#ffffaf"
+    col_name: "#afffaf"
+  max:
+    row: 12
+    word: 15
+
+IO:
+  lowest: 0  # recommend: 25
+  tip-type: combined
+
+processor:
+  lowest: 0  # recomend: $ echo "100/$(nproc)" | bc
+  tip-type: combined
+
+memory:
+  lowest: 0  # recommend: 25
+  tip-type: combined
+
+temperature:
+  ambient: 27  # Temperature in degrees Celcius
+  lowest: 0  # This is percent of alarm temperature, not degrees Celcuis
+
+netcheck:
+  internet: 8.8.8.8  # Google's DNS as an indicator of connection to internet
+
+netio:
+  ignore-below: 1024  # [= 1kB/s] Ignore below this speed (bytes/s)

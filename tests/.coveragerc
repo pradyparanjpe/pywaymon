@@ -1,0 +1,14 @@
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == '__main__':
+
+ignore_errors = True
+
+[run]
+omit =
+    */src/pywaymon/__main__.py
+    */src/pywaymon/__about__.py
+    */src/pywaymon/errors.py
+    */src/pywaymon/command_line.py
+source = pywaymon
