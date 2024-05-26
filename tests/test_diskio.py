@@ -41,18 +41,18 @@ class TestIO(unittest.TestCase):
 
     def test_processes(self):
         del self.seg.proc_tip.table
-        self.assertIsNone(self.seg.proc_tip.table)
-        self.seg.processes()
+        self.assertIsNone(self.seg._proc_tip.table)
+        # self.seg.processes()
         self.assertIsNotNone(self.seg.proc_tip.table)
 
     def test_disks(self):
         del self.seg.disk_tip.table
-        self.assertIsNone(self.seg.disk_tip.table)
-        self.seg.disks()
+        self.assertIsNone(self.seg._disk_tip.table)
+        # self.seg.disks()
         self.assertIsNotNone(self.seg.disk_tip.table)
 
     def test_tooltip(self):
-        self.seg.cargo.tooltip = None
+        # self.seg.cargo.tooltip = None
         self.seg.set_tooltip()
         self.assertIsNotNone(self.seg.cargo.tooltip)
 

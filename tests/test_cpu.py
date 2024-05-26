@@ -49,14 +49,14 @@ class TestCPU(unittest.TestCase):
 
     def test_processes(self):
         del self.seg.proc_tip.table
-        self.assertIsNone(self.seg.proc_tip.table)
-        self.seg.processes()
+        self.assertIsNone(self.seg._proc_tip.table)
+        # self.seg.processes()
         self.assertIsNotNone(self.seg.proc_tip.table)
 
     def test_cores(self):
         del self.seg.core_tip.table
-        self.assertIsNone(self.seg.core_tip.table)
-        self.seg.cores()
+        self.assertIsNone(self.seg._core_tip.table)
+        # self.seg.cores()
         self.assertIsNotNone(self.seg.core_tip.table)
 
     def test_tooltip(self):

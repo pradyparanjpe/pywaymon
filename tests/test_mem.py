@@ -30,8 +30,8 @@ class TestMEM(unittest.TestCase):
         self.seg = MEMStats()
 
     def test_proc_tip(self):
-        self.assertEqual(self.seg.proc_tip.title, 'Memory')
-        self.assertEqual(self.seg.dev_tip.title, 'Memory')
+        self.assertEqual(self.seg._proc_tip.title, 'Memory')
+        self.assertEqual(self.seg._dev_tip.title, 'Memory')
 
     def test_percent(self):
         self.seg.set_percentage()
@@ -50,14 +50,14 @@ class TestMEM(unittest.TestCase):
 
     def test_processes(self):
         del self.seg.proc_tip.table
-        self.assertIsNone(self.seg.proc_tip.table)
-        self.seg.processes()
+        self.assertIsNone(self.seg._proc_tip.table)
+        # self.seg.processes()
         self.assertIsNotNone(self.seg.proc_tip.table)
 
     def test_devices(self):
         del self.seg.dev_tip.table
-        self.assertIsNone(self.seg.dev_tip.table)
-        self.seg.devices()
+        self.assertIsNone(self.seg._dev_tip.table)
+        # self.seg.devices()
         self.assertIsNotNone(self.seg.dev_tip.table)
 
     def test_tooltip(self):

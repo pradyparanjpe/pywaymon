@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2022, 2023 Pradyumna Paranjape
+# Copyright © 2022-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -27,9 +27,15 @@ import os
 import socket
 import struct
 import subprocess
+from dataclasses import dataclass
 from typing import Optional
 
-from pywaymon.base import KernelStats, WayBarToolTip
+from pywaymon.base import CONFIG, KernelStats, ModConf, WayBarToolTip
+
+
+@dataclass
+class NetCheckConf(ModConf):
+    internet: str = '8.8.8.8'
 
 
 class NetState(KernelStats):
@@ -38,12 +44,20 @@ class NetState(KernelStats):
     def __init__(self, *args, **kwargs):
         """Current IP address"""
         super().__init__(*args, **kwargs)
+        self._config: Optional[NetCheckConf] = None
         self._ip_addr: Optional[str] = None
         self._ap_mac: Optional[str] = None
         self._gateway: Optional[str] = None
         self._buddy: Optional[str] = None
         self._zone: Optional[str] = None
         self.cargo.tooltip = WayBarToolTip(title='Network')
+
+    @property
+    def config(self) -> NetCheckConf:
+        """Module-specific configuration."""
+        if self._config is None:
+            self._config = NetCheckConf(**CONFIG.get(self.mon_name, {}))
+        return self._config
 
     @property
     def icon(self):
@@ -151,7 +165,7 @@ class NetState(KernelStats):
         """
         if self.ip_addr is None or (self.ip_addr[:7] == '127.0.0'):
             return 'alone'
-        if self.ping_target(self.config['internet']):
+        if self.ping_target(self.config.internet):
             return 'inter'
         if (self.gateway != 'Unknown') and self.ping_target(self.gateway):
             return 'intra'

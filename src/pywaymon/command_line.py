@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2023 Pradyumna Paranjape
+# Copyright © 2023-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -41,32 +41,32 @@ def _cli():
         '-i',
         '--interval',
         metavar='SEC',
-        default=0.,
+        default=None,
         type=float,
-        help='trigger every SEC. "0": call only once and return exit.')
+        help='Trigger every SEC. "0": call only once and return exit.')
     parser.add_argument('-t',
                         '--tip-type',
                         metavar='TYPE',
                         type=str,
                         help='start with this tip type')
-    segments = parser.add_subparsers(title='Segment',
-                                     required=True,
-                                     dest='segment',
-                                     help='''Modular segments''')
-    segments.add_parser('memory', help='Memory stats')
-    segments.add_parser('processor', help='CPU stats')
-    segments.add_parser('temperature', help='Temperature sensors')
-    segments.add_parser('load', help='CPU load')
-    segments.add_parser('IO', help='I/O load')
-    netio = segments.add_parser('netio', help='Networking stats')
+    modules = parser.add_subparsers(title='Module',
+                                    required=True,
+                                    dest='module',
+                                    help='''Waybar module segment''')
+    modules.add_parser('memory', help='Memory stats')
+    modules.add_parser('processor', help='CPU stats')
+    modules.add_parser('temperature', help='Temperature sensors')
+    modules.add_parser('load', help='CPU load')
+    modules.add_parser('IO', help='I/O load')
+    netio = modules.add_parser('netio', help='Networking stats')
     netio.add_argument('-P',
                        '--promise',
                        metavar='B/s',
                        type=int,
                        default=0,
                        help='Promised Speed in bytes/s (0: unknown)')
-    segments.add_parser('netcheck', help='Network status')
-    segments.add_parser('distro', help='System updates')
+    modules.add_parser('netcheck', help='Network status')
+    modules.add_parser('distro', help='System updates')
     return parser
 
 

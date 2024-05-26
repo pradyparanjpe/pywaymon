@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2023 Pradyumna Paranjape
+# Copyright © 2023-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -35,7 +35,7 @@ def main():
     cliargs = cli()
     push_tip = cliargs.pop('push_tip')
     refresh = cliargs.pop('refresh')
-    segment = cliargs.pop('segment')
+    module = cliargs.pop('module')
     mon = {
         'processor': CPUStats,
         'load': CPULoad,
@@ -45,7 +45,7 @@ def main():
         'memory': MEMStats,
         'netcheck': NetState,
         'netio': NetIOStats,
-    }[segment](**cliargs)
+    }[module](**cliargs)
     if push_tip:
         direction = 'prev' if push_tip < 0 else 'next'
         data = mon.socket_commands.get(f'{direction} tip', 'refresh')

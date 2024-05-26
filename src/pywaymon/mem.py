@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2022, 2023 Pradyumna Paranjape
+# Copyright © 2022-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -23,9 +23,11 @@ Memory stats for waybar.
 Model: ``top``
 """
 
+from functools import reduce
+
 import psutil
 
-from pywaymon.base import KernelStats, WayBarToolTip
+from pywaymon.base import CONFIG, KernelStats, WayBarToolTip
 
 
 class MEMStats(KernelStats):
@@ -34,31 +36,41 @@ class MEMStats(KernelStats):
 
     Handle that can monitor emit memory statistics in waybar JSON format.
     """
-    tip_types = 'combined', 'pids', 'device'
+    tip_opts = 'pids', 'device'
     mon_name = 'memory'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.dev_tip = WayBarToolTip(title=self.mon_name.capitalize(),
-                                     col_names=['USED', 'TOTAL'],
-                                     row_names=['RAM', 'SWAP'])
-        self.proc_tip = WayBarToolTip(title=self.mon_name.capitalize(),
-                                      col_names=('PID', 'USAGE%', 'COMMAND'))
+        self._dev_tip = WayBarToolTip(title=self.mon_name.capitalize(),
+                                      col_names=['USED', 'TOTAL'],
+                                      row_names=['RAM', 'SWAP'])
+        self._proc_tip = WayBarToolTip(title=self.mon_name.capitalize(),
+                                       col_names=('PID', 'USAGE%', 'COMMAND'))
 
-    def processes(self):
+    @property
+    def proc_tip(self) -> WayBarToolTip:
         """List most 'expensive' processes."""
-        hogs = list(proc.info for proc in sorted(
+        hogs = (proc.info for proc in sorted(
             psutil.process_iter(['memory_percent', 'pid', 'name']),
             reverse=True,
             key=lambda x: x.info['memory_percent']))
-        self.proc_tip.table = [[
+        max_row = CONFIG.get('row')
+        max_col = CONFIG.get('col')
+        self._proc_tip.table = [[
             str(info['pid']), ("%0.2f" % info['memory_percent']), info['name']
-        ] for info in hogs]
+        ][:max_col] for info in hogs][:max_row]
+        return self._proc_tip
 
-    def devices(self):
-        self.dev_tip.table = [[
+    @property
+    def dev_tip(self) -> WayBarToolTip:
+        max_row = CONFIG.get('row')
+        max_col = CONFIG.get('col')
+        self._dev_tip.table = [[
             f'{dev.used / 0x40000000:0.2f}', f'{dev.total / 0x40000000:0.2f}'
-        ] for dev in (psutil.virtual_memory(), psutil.swap_memory())]
+        ][:max_col]
+                               for dev in (psutil.virtual_memory(),
+                                           psutil.swap_memory())][:max_row]
+        return self._dev_tip
 
     def set_percentage(self):
         self.cargo.percentage = int(psutil.virtual_memory().percent)
@@ -80,13 +92,7 @@ class MEMStats(KernelStats):
                 self.cargo.class_ = "warn"
 
     def set_tooltip(self):
-        if self.tip_type == 'pids':
-            self.processes()
-            self.cargo.tooltip = self.proc_tip
-        elif self.tip_type == 'device':
-            self.devices()
-            self.cargo.tooltip = self.dev_tip
-        else:
-            self.devices()
-            self.processes()
-            self.cargo.tooltip = self.dev_tip + self.proc_tip
+        """Set tooltip for waybar return"""
+        tip_form = {'pids': self.proc_tip, 'device': self.dev_tip}
+        self.cargo.tooltip = reduce(lambda x, y: x + tip_form.get(y),
+                                    self.tip_type, WayBarToolTip())

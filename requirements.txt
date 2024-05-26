@@ -1,2 +1,4 @@
 nmcli
 psutil
+toml
+xdgpspconf

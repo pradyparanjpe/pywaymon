@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2023 Pradyumna Paranjape
+# Copyright © 2023-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -23,38 +23,80 @@ import json
 import os
 import re
 import socket
+from dataclasses import dataclass
 from itertools import zip_longest
 from math import log2, log10
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
-
-from xdgpspconf import ConfDisc
+from typing import (Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple,
+                    Union)
 
 from pywaymon.errors import TipTypeError, UnitsError
+from pywaymon.read_config import read_config
 
-CONFIG = (list(
-    ConfDisc('pywaymon',
-             shipped=Path(__file__)).read_config(flatten=True).values()))[0]
-"""Super-imposed configurations"""
+CONFIG = read_config()
+"""Super-imposed configurations."""
 
-MAX_ROW = CONFIG['table']['max']['row']
-"""Limit on number of displayed rows (from config)."""
+MAX_ROW = CONFIG.get('tooltip', {}).get('max', {}).get('row')
+"""Limit on table rows (from config)."""
 
-BAR = '\u2502'
-"""Separates combined tables"""
+MAX_COL = CONFIG.get('tooltip', {}).get('max', {}).get('col')
+"""Limit on table columns (from config)."""
+
+BAR = CONFIG.get('tooltip', {}).get('sep', '\u2502')
+"""Separates combined tables."""
 
 VALRE = re.compile(r'([0-9]*\.?[0-9]*) *(\w)?')
 """Regular Expression for values suffixed with standard unit prefixes."""
 
-STD_PREF = ('q', 'r', 'y', 'z', 'a', 'f', 'p', 'n', '\u03bc', 'm', '', 'k',
-            'M', 'G', 'T', 'P', 'E', 'Z', 'Y', 'R', 'Q')
-"""Standard unit prefixes"""
+STD_PREF = (
+    'q',  # quecto
+    'r',  # ronto
+    'y',  # yocto
+    'z',  # zepto
+    'a',  # atto
+    'f',  # femto
+    'p',  # pico
+    'n',  # nano
+    '\u03bc',  # micro
+    'm',  # milli
+    '',  # <base>
+    'k',  # kilo
+    'M',  # mega
+    'G',  # giga
+    'T',  # tera
+    'P',  # peta
+    'E',  # exa
+    'Z',  # zetta
+    'Y',  # yotta
+    'R',  # ronna
+    'Q'  # quetta
+)
+"""Standard unit prefixes."""
 
 
-def pref_unit(val: Union[int, float, str],
+def nop(*args: Any, **kwargs: Any):
+    """
+    No Operation.
+
+    Accept arbitrary number of argument and keyword arguments and do nothing.
+
+    Parameters
+    ----------
+    args : Any
+        all are ignored
+    kwargs : Any
+        all are ignored
+
+    Returns
+    -------
+    None
+    """
+
+
+def pref_unit(val: Union[str, int, float],
               /,
               pref: str = '',
-              binary: bool = True) -> Tuple[int, str]:
+              binary: bool = True) -> Tuple[float, str]:
     """
     Represent number with standard unit prefixes.
 
@@ -143,11 +185,24 @@ def val_pref(val: Union[int, float, str],
 
     Examples
     --------
-    >>> print(val_pref(20000000, spacer=' ') + 'B/s')
+    >>> print(val_pref(20_000_000, spacer=' ') + 'B/s')
     19.1 MB/s
     """
     val, pref = pref_unit(val, pref=pref, binary=binary)
     return f'{val}{spacer}{pref}{after}'
+
+
+@dataclass
+class ModConf:
+    """
+    Base Module config.
+    """
+    loop_interval: float = 0.
+    """Default loop interval."""
+    lowest: float = 0.
+    """Lowest value percent displayed below which, module segment is hidden."""
+    tip_type: str = ''
+    """Default hover tip-type."""
 
 
 class WayBarToolTip:
@@ -178,9 +233,12 @@ class WayBarToolTip:
             col names, unavailable columns are given empty names
         table : Optional[Sequence[Union[Sequence[str], str]]]
             Tabular values. If lengths mismatch, the remaining are left empty
+        idx_col : Optional[Sequence[int]]
+            column numbers which should be formatted as index
         major_axis : {'row', 'column'}
             row : table is supplied as rows of words (default, fallback)
             column : table is supplied as columns of words
+
     """
 
     def __init__(self,
@@ -189,32 +247,45 @@ class WayBarToolTip:
                  title: Optional[str] = None,
                  **kwargs):
         self.title = title
-        self._row_names = None
-        self._col_names = None
+        """Tooltip title."""
 
-        self._table: Optional[Sequence[Sequence[str]]] = None
+        self._row_names: Optional[Iterable[Union[str, int, float]]] = None
+        self._col_names: Optional[Iterable[Union[str, int, float]]] = None
+        self._table: Optional[Sequence[Sequence[Union[str, int,
+                                                      float]]]] = None
 
-        # use setters to regularize structures
+        # use property setters to regularize structures
         self.table = kwargs.get('table')
         self.row_names = kwargs.get('row_names')
         self.col_names = kwargs.get('col_names')
+
+        self.idx_col: Set[int] = set(kwargs.get('idx_col', []))
+        """Column numbers in table, which should be formatted as row_names."""
+
         if isinstance(text, WayBarToolTip):
             self.copy(text)
         else:
             self.text = text
+            """Free-flowing text."""
+
         if self.table and (kwargs.get('major_axis', 'row') == 'column'):
             self.transpose_table()
 
     @property
-    def row_names(self) -> Optional[Iterable[str]]:
-        return list(self._row_names)[:MAX_ROW] if self._row_names else None
+    def row_names(self) -> Optional[List[Union[str, int, float]]]:
+        """Names of rows in the table."""
+        if not self._row_names:
+            return None
+        row_names = list(self._row_names)
+        return row_names[:MAX_ROW] if MAX_ROW else row_names
 
     @row_names.setter
-    def row_names(self, value: Optional[Union[Iterable[str], str]]):
+    def row_names(self, value: Optional[Union[Iterable[Union[str, int, float]],
+                                              Union[str, int, float]]]):
         if value is None:
             self._row_names = None
             return
-        if isinstance(value, str):
+        if isinstance(value, (str, int, float)):
             self._row_names = [value]
             return
         self._row_names = value
@@ -224,15 +295,20 @@ class WayBarToolTip:
         self._row_names = None
 
     @property
-    def col_names(self) -> Optional[Iterable[str]]:
-        return self._col_names
+    def col_names(self) -> Optional[List[Union[str, int, float]]]:
+        """Names of columns in the table."""
+        if not self._col_names:
+            return None
+        col_names = list(self._col_names)
+        return col_names[:MAX_COL] if MAX_COL else col_names
 
     @col_names.setter
-    def col_names(self, value: Optional[Union[Iterable[str], str]]):
+    def col_names(self, value: Optional[Union[Iterable[Union[str, int, float]],
+                                              Union[str, int, float]]]):
         if value is None:
             self._col_names = None
             return
-        if isinstance(value, str):
+        if isinstance(value, (str, int, float)):
             self._col_names = [value]
             return
         self._col_names = value
@@ -243,6 +319,7 @@ class WayBarToolTip:
 
     @property
     def table(self) -> Optional[Sequence[Sequence[Union[str, int, float]]]]:
+        """Tooltip table."""
         return self._table[:MAX_ROW] if self._table else None
 
     @table.setter
@@ -256,11 +333,28 @@ class WayBarToolTip:
             self._table = [[str(itm) for itm in value]]
         else:
             # 2 Dimensional
-            self._table = [[str(itm) for itm in row] for row in value]
+            self._table = [
+                [str(itm) for itm in row]  # type: ignore [union-attr]
+                for row in value
+            ]
 
     @table.deleter
     def table(self):
         self._table = None
+
+    def __bool__(self) -> bool:
+        """
+        Tooltip contains any information.
+
+        Returns
+        -------
+        ``False`` if only a placeholder without any data.
+        """
+        if all((attr is None
+                for attr in (self.title, self.text, self.row_names,
+                             self.col_names, self.table))):
+            return False
+        return True
 
     def __eq__(self, other) -> bool:
         """
@@ -291,7 +385,7 @@ class WayBarToolTip:
     def __str__(self) -> str:
         return '\n'.join(('\t'.join(row) for row in self.repr_grid()))
 
-    def __add__(self, other: 'WayBarToolTip') -> 'WayBarToolTip':
+    def __add__(self, other: Optional['WayBarToolTip']) -> 'WayBarToolTip':
         """
         Combine tooltips.
 
@@ -336,6 +430,12 @@ class WayBarToolTip:
         :class:`WayBarToolTip`
             Combined tooltips
         """
+        if not other:
+            return self
+        if not self:
+            return other
+        combined_idx_col: Set[int] = self.idx_col
+
         # simple `use A else use B` code
         combined_title = self.title if self.title else other.title
         combined_text = ((self.text or '') + '\n' +
@@ -343,52 +443,102 @@ class WayBarToolTip:
         combined_col_names = None
         combined_row_names = None
         combined_table = None
+        combined_row_names = self.row_names
         if other.table is None:
             combined_col_names = self.col_names
-            combined_row_names = self.row_names
             combined_table = self.table
+
         elif self.table is None:
             combined_col_names = other.col_names
-            combined_row_names = other.row_names
             combined_table = other.table
 
         else:
             # Combination Grid
             my_cols = max(len(row) for row in self.table)
-            combined_row_names = self.row_names
 
             # Column-Names
             # Self's Named Columns
-            combined_col_names = list(self.col_names) if self.col_names else []
+            combined_col_names = self.col_names if self.col_names else []
 
             # Self's Blank Columns
-            combined_col_names = combined_col_names + (
-                [''] * (my_cols - len(combined_col_names))) + [BAR]
+            combined_col_names = [
+                *combined_col_names,
+                *([''] * (my_cols - len(combined_col_names))), BAR
+            ]
 
             # Other's columns
             if other.row_names:
                 # Place holder for top left corner of second part
                 combined_col_names.append('')
+                combined_idx_col.add(my_cols + 1)
+                combined_idx_col |= set(col + my_cols + 1
+                                        for col in other.idx_col)
+            else:
+                combined_idx_col |= set(col + my_cols + 1
+                                        for col in other.idx_col)
+
             combined_col_names.extend(
                 (other.col_names if other.col_names else []))
 
             combined_table = [
-                (list(my_row) + ([''] * (my_cols - len(my_row)))) + [BAR] + ([
-                    other.row_names[row_num] if
-                    (len(other.row_names) > row_num) else ''
-                ] if other.row_names else []) + list(its_row)
-                for row_num, (my_row, its_row) in enumerate(
+                [
+                    *my_row,  # mine
+                    *[''] * (my_cols - len(my_row)),  # blanks
+                    BAR,  # BAR
+                    *([
+                        other.row_names[row_num] if
+                        (len(other.row_names) > row_num) else ''
+                    ] if other.row_names else []),  # its rows
+                    *its_row  #its
+                ] for row_num, (my_row, its_row) in enumerate(
                     zip_longest(*(self.table, other.table), fillvalue=()))
             ]
         return WayBarToolTip(title=combined_title,
                              text=combined_text,
                              col_names=combined_col_names,
                              row_names=combined_row_names,
-                             table=combined_table)
+                             table=combined_table,
+                             idx_col=combined_idx_col)
+
+    def pango(self, text: Any, style: str = 'word', clip: int = 0):
+        """
+        Clip and stylize text using pango span tag.
+
+        Clip text to configured number of characters.
+        Stylize by placing tags at *{}* in `<span {}>text</span>`.
+
+        Parameters
+        ----------
+        text : Any
+            text to stylize, will be converted to string form.
+
+        style : style
+            Configured style of text. If arbitrary string, it is considered
+            a correctly formatted ('key=value') tag and used as it is.
+
+        clip : int
+            Clip text to these many characters.
+            Default: from CONFIG or leave intact.
+        """
+        _text = str(text)
+        if style in CONFIG['tooltip']:
+            tags = ' '.join(
+                (f'{p_tag}="{p_val}"'
+                 for p_tag, p_val in CONFIG['tooltip'][style].items()
+                 if (p_tag != 'clip')))
+        else:
+            tags = style
+
+        clip = clip or CONFIG['tooltip'].get(style, {}).get('clip')
+        if clip:
+            _text = _text[:clip]
+        if not tags:
+            return _text
+        return f'<span {tags}>{_text}</span>'
 
     def repr_grid(self) -> List[List[str]]:
         r"""
-        String representation of tool-tip
+        String representation of tool-tip.
 
         Representation order
         --------------------
@@ -416,40 +566,45 @@ class WayBarToolTip:
             printable representation
         """
         fmt_rep: List[List[str]] = []
-        colors = CONFIG['table']['colors']
-        max_word = CONFIG['table']['max']['word']
         if self.title:
-            t_col = colors['title']
-            fmt_rep.append(
-                [f'<span color="{t_col}"><b><u>{self.title}</u></b></span>'])
+            fmt_rep.extend(([self.pango(self.title, 'title')], []))
         if self.text:
-            if self.title:
-                fmt_rep.append([])
-            fmt_rep.append([self.text])
-        if self.table:
-            if self.col_names:
-                r_col = colors['row_name']
-                fmt_rep.append(([''] if self.row_names else []) + [
-                    f'<span color="{r_col}">{name}</span>'
-                    for name in self.col_names
-                ])
-            # remaining will remain blank anyway
-            self.table = [[str(word)[:max_word] for word in row]
-                          for row in self.table]
-            if self.row_names:
-                c_col = colors['col_name']
-                named_table = [([row_name] + list(row))
-                               for (row_name, row) in zip_longest(*((
-                                   f'<span color="{c_col}">{name}</span>'
-                                   for name in self.row_names), self.table),
-                                                                  fillvalue='')
-                               ]
-                fmt_rep.extend([[str(word) for word in row]
-                                for row in named_table])
-            else:
-                fmt_rep.extend([[str(word) for word in row]
-                                for row in self.table])
+            fmt_rep.append([self.pango(self.text, 'text')])
+        fmt_rep.extend(self.format_table())
         return fmt_rep
+
+    def format_table(self) -> List[List[str]]:
+        """
+        Formatted table as list of rows.
+
+        Each row is a list of words (fields)
+        """
+        if not self.table:
+            return []
+        fmt_tab: List[List[str]] = []
+        if self.col_names:
+            fmt_tab.append(
+                ([''] if self.row_names else []) +
+                [self.pango(name, 'col_name') for name in self.col_names])
+        # remaining column headers will remain blank anyway
+
+        # add row names to table
+        if self.row_names:
+            table: Sequence[Sequence[Union[str, int, float]]] = [[
+                row_name, *row
+            ] for row_name, row in zip_longest(*(self.row_names, self.table),
+                                               fillvalue='')]
+            self.idx_col.add(0)
+        else:
+            table = self.table
+
+        # format index columns with row_name format
+        fmt_tab.extend([[
+            self.pango(word,
+                       ('row_name' if word_idx in self.idx_col else 'word'))
+            for word_idx, word in enumerate(row)
+        ] for row in table])
+        return fmt_tab
 
     def copy(self, parent):
         self.text = parent.text
@@ -457,6 +612,7 @@ class WayBarToolTip:
         self.col_names = parent.col_names or self.col_names
         self.row_names = parent.row_names or self.row_names
         self.table = parent.table or self.table
+        self.idx_col = parent.idx_col | self.idx_col
 
     def transpose_table(self):
         if self.table is None:
@@ -466,7 +622,7 @@ class WayBarToolTip:
 
 class WayBarReturnType:
     """
-    Waybar custom module (segment) return-type in JSON format.
+    Waybar custom module return-type in JSON format.
 
     Parameters
     ----------
@@ -479,7 +635,7 @@ class WayBarReturnType:
     wclass : Optional[Union[List[str], str]]
         css class for styling
 
-    percentage : Optional[str, int, float]
+    percentage : Optional[float]
         numerical value used to decide icon, etc. by waybar
     """
 
@@ -488,12 +644,12 @@ class WayBarReturnType:
                  alt: Optional[str] = None,
                  tooltip: Optional[Union[WayBarToolTip, str]] = None,
                  wclass: Optional[Union[List[str], str]] = None,
-                 percentage: Optional[Union[str, int, float]] = None):
+                 percentage: Optional[float] = None):
         self.text = text
-        """Displayed text"""
+        """Displayed text."""
 
         self.alt = alt
-        """Alternate string"""
+        """Alternate string."""
 
         self.tooltip: WayBarToolTip = WayBarToolTip(tooltip)
         r"""Tooltip to display on hover, list is joined with '\n'"""
@@ -525,17 +681,21 @@ class KernelStats:
 
     Parameters
     ----------
-    tip_type : Optional[str]
+    tip_type : Optional[Sequence[str]]
         Initial tip type to decide format, etc.
     """
 
-    tip_types: Tuple[str, ...] = ('', )
+    tip_opts: Tuple[str, ...] = ('', )
     """Types of tooltips."""
 
     mon_name = ''
     """Name of monitor"""
 
-    def __init__(self, tip_type: Optional[str] = None, interval: float = 0.):
+    def __init__(self,
+                 tip_type: Optional[Sequence[str]] = None,
+                 interval: Optional[float] = None):
+        self._config: Optional[ModConf] = None
+
         self.socket_commands: Dict[str, str] = {
             'next tip': 'next tip',
             'prev tip': 'prev tip',
@@ -543,13 +703,19 @@ class KernelStats:
         }
         """Commands recognized by socket."""
 
-        self.interval = interval
-        """Loop interval. If zero, call only once."""
+        self.interval = (interval if
+                         (interval is not None) else self.config.loop_interval)
+        """
+        Loop interval in seconds.
+        If zero, call only once.
+
+        May be configured using key 'loop-interval'.
+        """
 
         self.cargo = WayBarReturnType()
         """Cargo to be loaded and sent as json to waybar."""
 
-        if tip_type and (tip_type not in self.tip_types):
+        if tip_type and all((tip not in self.tip_opts) for tip in tip_type):
             raise TipTypeError(tip_type)
 
         self._state_file: Optional[Path] = None
@@ -557,9 +723,11 @@ class KernelStats:
         self.register_state(tip_type)
 
     @property
-    def config(self) -> Dict[str, Any]:
-        """Segment-specific configuration."""
-        return CONFIG.get(self.mon_name, {})
+    def config(self) -> ModConf:
+        """Module specific configuration."""
+        if self._config is None:
+            self._config = ModConf(**CONFIG.get(self.mon_name, {}))
+        return self._config
 
     @property
     def state_file(self) -> Path:
@@ -589,14 +757,14 @@ class KernelStats:
     @property
     def sock_file(self) -> Path:
         """
-        Path to file that opens a communication socket for the segment.
+        Path to file that opens a communication socket for the module.
 
         The value is the same as :attr:`state_file` with the extension '.sock'
         """
         return self.state_file.with_suffix('.sock')
 
     @property
-    def tip_type(self) -> str:
+    def tip_type(self) -> Sequence[str]:
         """
         Current state of tooltip.
 
@@ -604,13 +772,21 @@ class KernelStats:
         This may be set at script initiation using command argument ``-t``;
         or the state may be pushed to the `next` value using ``-p``.
         """
+        tips = []
         try:
             cache = self.state_file.read_text()
-            if cache in self.tip_types:
-                return cache
-            raise TipTypeError(cache)  # this will be caught
+            tips = list(
+                filter(lambda x: x in self.tip_opts,
+                       [elt.strip().rstrip() for elt in cache.split('+')]))
+            if not tips:
+                raise TipTypeError(cache)  # this will be caught
         except (TipTypeError, FileNotFoundError):
-            return str(self.config.get('tip-type', self.tip_types[0]))
+            tips = list(
+                filter(lambda x: x in self.tip_opts, [
+                    elt.strip().rstrip()
+                    for elt in self.config.tip_type.split('+')
+                ]))
+        return tips or self.tip_opts
 
     def __call__(self, interval: Optional[float] = None) -> int:
         """
@@ -621,7 +797,7 @@ class KernelStats:
         Parameters
         ----------
         interval: int
-            periodicity of loop if not provided, use :attr:`interval`.
+            Periodicity of loop. If not provided, use :attr:`interval`.
             If ``0``, call only once and return exit.
 
         Returns
@@ -658,15 +834,15 @@ class KernelStats:
                 finally:
                     self.sense()
 
-                    # print only if greater than configured value
-                    if ((lowest := self.config.get('lowest'))
-                            and (self.cargo.percentage < lowest)):
-                        print('{"text": null}', flush=True)
-                    else:
+                    # print only if at least the configured lowest value
+                    if ((self.cargo.percentage is None)
+                            or (self.cargo.percentage >= self.config.lowest)):
                         print(self.cargo, flush=True)
+                    else:
+                        print('{"text": null}', flush=True)
         return 0
 
-    def register_state(self, state: Optional[str] = None):
+    def register_state(self, state: Optional[Sequence[str]] = None):
         """
         Register current state to :attr:`state_file`.
 
@@ -678,7 +854,7 @@ class KernelStats:
             If supplied, this state is registered instead of current.
             This is useful for `pushing` the state.
         """
-        self.state_file.write_text(state or self.tip_type)
+        self.state_file.write_text(' + '.join((state or self.tip_type)))
 
     def comm(self, data: str = 'refresh'):  # pragma: no cover
         """Client to communicate to the loop."""
@@ -691,14 +867,17 @@ class KernelStats:
         """
         Use next tool-tip format.
 
+        If current tooltip is simple, use it.
+        If current tooltip is composite, use the first simple tooltip.
+
         Parameters
         ----------
         direction : int
             next tip is so many places way from current. (may be negative)
         """
-        tip_type = self.tip_types[(self.tip_types.index(self.tip_type) +
-                                   direction) % len(self.tip_types)]
-        self.register_state(tip_type)
+        tip_type = self.tip_opts[(self.tip_opts.index(self.tip_type[0]) +
+                                  direction) % len(self.tip_opts)]
+        self.register_state([tip_type])
 
     def get_values(self):
         """Get values from system."""
@@ -710,7 +889,7 @@ class KernelStats:
         """
         Set display text.
 
-        If this is ``None`` (default), the segment is hidden.
+        If this is ``None`` (default), the module segment is hidden.
         """
 
     def set_alt(self):

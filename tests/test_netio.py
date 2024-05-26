@@ -17,7 +17,7 @@
 
 # You should have received a copy of the GNU Lesser General Public License
 # along with pywaymon.  If not, see <https://www.gnu.org/licenses/>.
-"""Test distro updates segment"""
+"""Test network data monitor module"""
 
 import unittest
 
@@ -32,14 +32,14 @@ class TestNetIO(unittest.TestCase):
     def test_frac(self):
         self.seg.get_values()
         self.assertIsNotNone(self.seg._last_check)
-        self.assertTrue(0 <= self.seg.rates['received'])
-        self.assertTrue(0 <= self.seg.rates['sent'])
+        self.assertTrue(0 <= self.seg.rates['RECV'])
+        self.assertTrue(0 <= self.seg.rates['SENT'])
 
     def test_promise(self):
         self.assertIsNone(self.seg.cargo.percentage)
         self.seg.set_percentage()
         if self.seg.promise == 0:
-            self.assertTrue(self.seg.cargo.percentage == 0)
+            self.assertIsNone(self.seg.cargo.percentage)
         else:
             self.assertIsNotNone(self.seg.cargo.percentage)
 

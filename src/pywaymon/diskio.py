@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2022, 2023 Pradyumna Paranjape
+# Copyright © 2022-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -23,11 +23,12 @@ Disk IO stats for waybar.
 Model: ``iostat``
 """
 
+from functools import reduce
 from time import time
 
 import psutil
 
-from pywaymon.base import KernelStats, WayBarToolTip, val_pref
+from pywaymon.base import CONFIG, KernelStats, WayBarToolTip, val_pref
 
 
 class IOStats(KernelStats):
@@ -36,15 +37,15 @@ class IOStats(KernelStats):
 
     Handle that can monitor emit Disk statistics in waybar JSON format.
     """
-    tip_types = 'combined', 'pids', 'disks'
+    tip_opts = 'disks + pids', 'pids', 'disks'
     mon_name = 'IO'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.proc_tip = WayBarToolTip(title=self.mon_name + ': Processes',
-                                      col_names=('PID', 'B/s', 'COMMAND'))
-        self.disk_tip = WayBarToolTip(title=self.mon_name + ': Disks B/s',
-                                      col_names=('read', 'write'))
+        self._proc_tip = WayBarToolTip(title=self.mon_name + ': Processes',
+                                       col_names=('PID', 'B/s', 'COMMAND'))
+        self._disk_tip = WayBarToolTip(title=self.mon_name + ': Disks B/s',
+                                       col_names=('read', 'write'))
         self._hogs_mem = {}
         """Hold last memory of hogs"""
 
@@ -67,7 +68,8 @@ class IOStats(KernelStats):
             for typ, val in psutil.cpu_times_percent()._asdict().items() if val
         ])
 
-    def processes(self):
+    @property
+    def proc_tip(self):
         """ List most 'expensive' processes."""
         hogs = {
             proc.info['pid']: {
@@ -93,22 +95,24 @@ class IOStats(KernelStats):
             for pid, vals in hogs.items()
         }
 
-        self.proc_tip.table = [
+        max_row = CONFIG.get('row')
+        self._proc_tip.table = [
             (str(pid), val_pref(vals['bytes']), vals['name'])
-            for pid, vals in list(
-                sorted(rate.items(), reverse=True,
-                       key=lambda x: x[1]['bytes']))
-        ]
+            for pid, vals in sorted(
+                rate.items(), reverse=True, key=lambda x: x[1]['bytes'])
+        ][:max_row]
 
         self._hogs_mem = hogs
+        return self._proc_tip
 
-    def disks(self):
+    @property
+    def disk_tip(self):
         diskio = {
             disk: io._asdict()
             for disk, io in psutil.disk_io_counters(perdisk=True,
                                                     nowrap=True).items()
         }
-        self.disk_tip.row_names = diskio.keys()
+        self._disk_tip.row_names = list(diskio.keys())
         delta_t = time() - self._time
         delta = {
             name: [
@@ -123,7 +127,9 @@ class IOStats(KernelStats):
             for name, io in diskio.items()
         }
         self._disk_mem = diskio
-        self.disk_tip.table = [disk for disk in delta.values()]
+        max_row = CONFIG.get('row')
+        self._disk_tip.table = [disk for disk in delta.values()][:max_row]
+        return self._disk_tip
 
     def set_percentage(self):
         self.cargo.percentage = int(psutil.cpu_times_percent().iowait)
@@ -136,17 +142,11 @@ class IOStats(KernelStats):
         self.cargo.text = f'{icon} {self.cargo.percentage}%'
 
     def set_tooltip(self):
-        if self.tip_type == 'pids':
-            self.processes()
-            self.cargo.tooltip = self.proc_tip
-        elif self.tip_type == 'disks':
-            self.disks()
-            self.cargo.tooltip = self.disk_tip
-        else:
-            self.disks()
-            self.processes()
-            self.cargo.tooltip = self.disk_tip + self.proc_tip
+        """Set tooltip for waybar return"""
         self.cargo.tooltip.text = self.tip_overview()
+        tip_form = {'pids': self.proc_tip, 'disks': self.disk_tip}
+        self.cargo.tooltip = reduce(lambda x, y: x + tip_form.get(y),
+                                    self.tip_type, WayBarToolTip())
 
     def set_class(self):
         self.cargo.class_ = 'io'

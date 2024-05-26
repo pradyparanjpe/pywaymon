@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2023 Pradyumna Paranjape
+# Copyright © 2023-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -19,6 +19,6 @@
 # along with pywaymon.  If not, see <https://www.gnu.org/licenses/>.
 """About Project"""
 
-__copyright_years__ = '2022, 2023'
+__copyright_years__ = '2022-2024'
 __author__ = 'Pradyumna Paranjape'
-__version__ = '0.0.1'
+__version__ = '0.0.2'

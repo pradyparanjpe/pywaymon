@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2022, 2023 Pradyumna Paranjape
+# Copyright © 2022-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -23,11 +23,21 @@ Monitor Temperature sensors.
 Model: ``sensors``
 """
 
+from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
 import psutil
 
-from pywaymon.base import KernelStats, WayBarToolTip
+from pywaymon.base import CONFIG, KernelStats, ModConf, WayBarToolTip
+
+
+@dataclass
+class HeatConf(ModConf):
+    ambient: float = 27.
+    """Expected ambient (room) temperature."""
+
+    alarming: float = 84.
+    """Default alarming temperature in Celsius."""
 
 
 class HeatStats(KernelStats):
@@ -40,16 +50,24 @@ class HeatStats(KernelStats):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._config: Optional[HeatConf] = None
         self.cargo.tooltip = WayBarToolTip(title=self.mon_name.capitalize())
 
-        self._temp: Dict[str, Dict[str, int]] = {}
+        self._temp: Dict[str, Dict[str, float]] = {}
         """Current temperatures for all sensors."""
 
-        self._alarms: Dict[str, Dict[str, int]] = {}
+        self._alarms: Dict[str, Dict[str, float]] = {}
         """Alarming temperatures for all sensors."""
 
-        self._coretemp: Optional[Tuple[int, int]] = None
+        self._coretemp: Optional[Tuple[float, float]] = None
         """Summary Temperature. Tuple: (current, alarm@)"""
+
+    @property
+    def config(self) -> HeatConf:
+        """Heat Module specific configuration."""
+        if self._config is None:
+            self._config = HeatConf(**CONFIG.get(self.mon_name, {}))
+        return self._config
 
     @property
     def icon(self):
@@ -65,12 +83,12 @@ class HeatStats(KernelStats):
         }.get(self.cargo.class_, '\uf2cb')
 
     @property
-    def temp(self) -> Dict[str, Dict[str, int]]:
+    def temp(self) -> Dict[str, Dict[str, float]]:
         """Query current temperatures for all sensors."""
         if not self._temp:
             self._temp = {
                 dev: {
-                    str(subdev.label): int(subdev.current)
+                    str(subdev.label): float(subdev.current)
                     for subdev in dat
                 }
                 for dev, dat in psutil.sensors_temperatures().items()
@@ -82,12 +100,15 @@ class HeatStats(KernelStats):
         self._temp = {}
 
     @property
-    def alarms(self) -> Dict[str, Dict[str, int]]:
-        """Alarming temperatures as declared by sensor or 84."""
+    def alarms(self) -> Dict[str, Dict[str, float]]:
+        """Alarming temperatures as declared by sensor."""
         if not self._alarms:
             self._alarms = {
                 dev: {
-                    str(subdev.label): int(getattr(subdev, 'high', 84) or 84)
+                    str(subdev.label):
+                    float(
+                        getattr(subdev, 'high', self.config.alarming)
+                        or self.config.alarming)
                     for subdev in dat
                 }
                 for dev, dat in psutil.sensors_temperatures().items()
@@ -95,15 +116,15 @@ class HeatStats(KernelStats):
         return self._alarms
 
     @property
-    def coretemp(self) -> Optional[Tuple[int, int]]:
+    def coretemp(self) -> Optional[Tuple[float, float]]:
         """
         Pick Core temperature (of interest) from all sensors.
 
         Returns
         -------
-        int, int
-            current temperature of interest,
-            Corresponding 'High' alarm at
+        float, float
+            Current temperature of interest,
+            Corresponding 'High' alarm, or configured default.
         """
         if self._coretemp is None:
             if (core := self.temp.get('coretemp', {})):
@@ -112,8 +133,8 @@ class HeatStats(KernelStats):
                 pack = ([
                     lab for lab in core.keys() if ('core' not in lab.lower())
                 ] or list(core.keys()))
-                self._coretemp = int(core[pack[0]]), self.alarms.get(
-                    'coretemp', {}).get(pack[0], 84)
+                self._coretemp = float(core[pack[0]]), self.alarms.get(
+                    'coretemp', {}).get(pack[0], self.config.alarming)
         return self._coretemp
 
     @coretemp.deleter
@@ -138,9 +159,8 @@ class HeatStats(KernelStats):
             self.cargo.percentage = None
             return
         coretemp, alarmtemp = self.coretemp
-        ambient = self.config['ambient']
-        self.cargo.percentage = (100 * (coretemp - ambient) /
-                                 (alarmtemp - ambient))
+        self.cargo.percentage = (100 * (coretemp - self.config.ambient) /
+                                 (alarmtemp - self.config.ambient))
 
     def set_class(self):
         self.cargo.class_ = 'default'
@@ -159,7 +179,7 @@ class HeatStats(KernelStats):
     def set_text(self):
         self.set_class()
         self.cargo.text = (None if (self.coretemp is None) else
-                           f'{self.icon} {self.coretemp[0]}\u2103')
+                           f'{self.icon} {int(self.coretemp[0])}\u2103')
 
     def set_tooltip(self):
         if not self.temp:  # pragma: no cover

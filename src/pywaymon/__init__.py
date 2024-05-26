@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2023 Pradyumna Paranjape
+# Copyright © 2023-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 

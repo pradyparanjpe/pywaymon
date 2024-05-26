@@ -18,35 +18,40 @@ SYNOPSIS
 Custom modules
 ***************
 
-Each custom module can be called from the command line with a sub-command argument as indicated :ref:`above <SYNOPSIS>`.
+Each custom module can be called from the command line with a sub-command argument as indicated :ref:`above<SYNOPSIS>`.
 
-Modules have various pre-formatted tooltips as indicated in their respective sections if available.
+Modules may have various pre-formatted tooltips as indicated (if available) in their respective sections.
 The initial type of tooltip may be supplied using the tip-type argument ``-t``.
 Unless supplied, the configured tip-type is used.
 If unconfigured, standard tip-type is used.
 
+.. _daemon_call:
+
 Daemon
 =======
 
-If called with the interval argument ``-i``, *pywaymon* enters an infinite loop emitting output and waiting for supplied seconds.
+If called with the interval argument ``-i``, *pywaymon* enters an infinite loop emitting output with an interval of supplied seconds.
 We shall refer to such an instance as the `daemon` mode.
-If value supplied with ``-i`` is ``0`` (default), *pywaymon* does not enter ther daemon mode; rather, emits only one test output and exits.
+If not called with an ``-i`` argument, *pywaymon* defaults to the configured value, else emits only one test output and exits.
+If value supplied with ``-i`` is ``0``, *pywaymon* does not enter daemon mode even if `configured <CONFIGURATION.html#loop-interval>`__; instead, emits only one test output and exits.
 
 Comm
 =====
-While a `daemon` instance of any segment is running in a loop, another `comm` instance may be called to manage the daemon.
+While a `daemon` instance of any module is running in a loop, another `comm` instance may be called to manage the daemon.
 Following arguments **imply** *comm* mode.
 
-Comm called with refresh argument ``-r`` sends a *refresh* instruction to manually update the segment before it's time.
+*pywaymon* called with refresh argument ``-r`` sends a *refresh* instruction to manually update the module before it's time.
 
-Comm called with push argument ``-p`` with an integer value pushes the tip state in forward direction if value is positive or in reverse direction if value is negative.
+*pywaymon* called with push argument ``-p`` with an integer value pushes the tip state in forward direction if value is positive or in reverse direction if value is negative.
 
 .. warning::
 
-    Comm **may not** be called with ``-i`` argument.
+    *pywaymon* **may not** be called with ``-i`` argument in comm mode.
 
-List
-=====
+.. _MODULES:
+
+Modules
+=======
 
 Following custom modules for waybar are defined.
 
@@ -146,7 +151,7 @@ System load.
 WayBar config
 **************
 
-Add *pywaymon* segments as 'custom/<segment>' to waybar configuration based on the following sample config.
+Add *pywaymon* modules as 'custom/<module>' to waybar configuration based on following sample config.
 
 Configuration
 ==============

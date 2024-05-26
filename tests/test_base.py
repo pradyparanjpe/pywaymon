@@ -43,7 +43,7 @@ class TestUnitPref(unittest.TestCase):
             pref_unit('2000 w')
 
     def test_val_pref(self):
-        self.assertIn('k', pref_unit(2000))
+        self.assertIn('k', val_pref(2000))
 
 
 class TestTip(unittest.TestCase):
@@ -56,6 +56,9 @@ class TestTip(unittest.TestCase):
                                  row_names=['row 1', 'row 2', 'row 3'],
                                  col_names=['col 1', 'col 2', 'col 3'],
                                  table=self.table)
+
+    def test_bool(self):
+        self.assertFalse(WayBarToolTip())
 
     def test_tip(self):
         self.assertEqual(self.tip.table, self.table)
@@ -120,6 +123,14 @@ class TestTip(unittest.TestCase):
         self.tip.transpose_table()
         self.assertIsNone(self.tip.table)
 
+    def test_pango(self):
+        lang_tag = 'lang="en_IN.utf-8"'
+        self.assertIn(lang_tag, self.tip.pango('test_text', lang_tag))
+        self.assertNotIn(
+            'text', self.tip.pango('some very long text', lang_tag, clip=10))
+        self.assertNotIn('span', self.tip.pango('simple text'))
+        self.assertIn('span color', self.tip.pango('test_text', 'title'))
+
     def test_repr_grid(self):
         grid = self.tip.repr_grid()
         self.assertEqual(len(grid), len(self.tip.table) + 4)
@@ -155,15 +166,17 @@ class TestReturnJSON(unittest.TestCase):
 class TestBase(unittest.TestCase):
 
     def setUp(self):
-        self.segment = KernelStats()
+        self.seg = KernelStats()
 
     def test_call(self):
-        self.segment()
+        self.seg()
 
     def test_bad_tip_type(self):
         with self.assertRaises(TipTypeError):
-            self.segment = KernelStats('bad tip type')
+            self.seg = KernelStats('bad tip type')
 
     def test_next_tip(self):
-        self.assertIsNone(self.segment.next_tip())
-        self.assertIsNone(self.segment.next_tip(-1))
+        print(self.seg.tip_type)
+        print(self.seg.tip_opts)
+        self.assertIsNone(self.seg.next_tip())
+        self.assertIsNone(self.seg.next_tip(-1))

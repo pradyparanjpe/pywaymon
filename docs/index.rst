@@ -15,6 +15,7 @@ Welcome to pywaymon's documentation!
    README
    INSTALL
    usage
+   tooltips
    CONFIGURATION
    CHANGELOG
    source-code-doc

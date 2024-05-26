@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2022, 2023 Pradyumna Paranjape
+# Copyright © 2022-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -23,12 +23,25 @@ NetIO stats for waybar.
 Model: ``nload``.
 """
 
+from dataclasses import dataclass
 from time import time
 from typing import Dict, Optional, Tuple
 
 import psutil
 
-from pywaymon.base import KernelStats, WayBarToolTip, pref_unit, val_pref
+from pywaymon.base import (CONFIG, KernelStats, ModConf, WayBarToolTip,
+                           pref_unit, val_pref)
+
+
+@dataclass
+class NetIOConf(ModConf):
+    ignore_below: float = 0.
+    """
+    Do not display text below this rate in bytes.
+    Still display the icon to allow hover.
+    """
+    promise: float = 0.
+    """Rate in bytes/sec as promised by Internet Service Provider."""
 
 
 class NetIOStats(KernelStats):
@@ -48,8 +61,9 @@ class NetIOStats(KernelStats):
     """
     mon_name = 'netio'
 
-    def __init__(self, promise: int = 0, *args, **kwargs):
+    def __init__(self, promise: Optional[int] = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._config: Optional[NetIOConf] = None
 
         self.last_io: Optional[Tuple[int, int]] = None
         """Number of bytes received/sent"""
@@ -60,26 +74,36 @@ class NetIOStats(KernelStats):
         self._last_check: Optional[float] = None
         """Time-stamp of last query"""
 
-        self.promise: int = promise or self.config.get('promise', 0)
-        """Promised speed in Bits Per Second"""
+        self.promise: float = (self.config.promise if
+                               (promise is None) else promise)
+        """Promised speed in Bytes Per Second"""
 
         self.cargo.tooltip = WayBarToolTip(title=self.mon_name.capitalize(),
-                                           col_names=list(self.rates.keys()))
+                                           col_names=self.rates.keys())
+
+    @property
+    def config(self) -> NetIOConf:
+        """Module-specific configuration."""
+        if self._config is None:
+            self._config = NetIOConf(**CONFIG.get(self.mon_name, {}))
+        return self._config
 
     @property
     def rates(self):
-        """Calculate data transfer rates."""
+        """
+        Calculate data transfer rates.
+        In (prefix)bytes per second.
+        """
         if self._rates is None:
-            self._rates = {'sent': 0., 'received': 0.}
+            self._rates = {'SENT': 0., 'RECV': 0.}
             counters = psutil.net_io_counters()
             last_check = time()
             last_io = counters.bytes_recv, counters.bytes_sent
             if self._last_check is not None:
                 assert self.last_io is not None
                 period = time() - self._last_check
-                self._rates['received'] = (last_io[0] -
-                                           self.last_io[0]) / period
-                self._rates['sent'] = (last_io[1] - self.last_io[1]) / period
+                self._rates['RECV'] = (last_io[0] - self.last_io[0]) / period
+                self._rates['SENT'] = (last_io[1] - self.last_io[1]) / period
 
             # memory
             self._last_check, self.last_io = last_check, last_io
@@ -94,12 +118,12 @@ class NetIOStats(KernelStats):
 
     def set_percentage(self):
         """Calculate fraction of promised rate being currently used."""
-        self.cargo.percentage = 0. if (not self.promise) else (
+        self.cargo.percentage = None if (not self.promise) else (
             sum(self.rates.values()) / self.promise)
 
     def set_text(self):
         raw_vals = sum(self.rates.values())
-        if raw_vals <= self.config.get('ignore-below', 0):
+        if raw_vals <= self.config.ignore_below:
             self.cargo.text = None
             return
         flux, pref = pref_unit(raw_vals)

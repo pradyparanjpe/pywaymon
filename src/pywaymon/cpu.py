@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2022, 2023 Pradyumna Paranjape
+# Copyright © 2022-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -23,9 +23,11 @@ CPU stats for waybar.
 Model: ``top``
 """
 
+from functools import reduce
+
 import psutil
 
-from pywaymon.base import KernelStats, WayBarToolTip
+from pywaymon.base import CONFIG, KernelStats, WayBarToolTip
 
 
 class CPUStats(KernelStats):
@@ -34,49 +36,44 @@ class CPUStats(KernelStats):
 
     Handle that can monitor emit CPU statistics in waybar JSON format.
     """
-    tip_types = 'combined', 'pids', 'processors'
+    tip_opts = 'processors + pids', 'pids', 'processors'
     mon_name = 'processor'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.core_tip = WayBarToolTip(title=self.mon_name.capitalize(),
-                                      col_names=['CORE', 'LOAD'])
-        self.proc_tip = WayBarToolTip(title=self.mon_name.capitalize(),
-                                      col_names=['PID', 'USAGE%', 'COMMAND'])
+        self._core_tip = WayBarToolTip(title=self.mon_name.capitalize(),
+                                       col_names=['CORE', 'LOAD'])
+        self._proc_tip = WayBarToolTip(title=self.mon_name.capitalize(),
+                                       col_names=['PID', 'USAGE%', 'COMMAND'])
 
-    def processes(self):
+    @property
+    def proc_tip(self) -> WayBarToolTip:
         """List most 'expensive' processes."""
-        hogs = list(proc.info for proc in sorted(
+        hogs = (proc.info for proc in sorted(
             psutil.process_iter(['cpu_percent', 'pid', 'name']),
             reverse=True,
             key=lambda x: x.info['cpu_percent']))
-        self.proc_tip.table = [[
+        max_row = CONFIG.get('row')
+        max_col = CONFIG.get('col')
+        self._proc_tip.table = [[
             str(info['pid']),
             str(info['cpu_percent']), info['name']
-        ] for info in hogs]
+        ][:max_col] for info in hogs][:max_row]
+        return self._proc_tip
 
-    def cores(self):
+    @property
+    def core_tip(self) -> WayBarToolTip:
         """Logical Core Resulution"""
-        self.core_tip.table = [[
-            f'{num: >2d}', f'{load:0.2f}'
-        ] for num, load in enumerate(psutil.cpu_percent(percpu=True), 1)]
+        max_row = CONFIG.get('row')
+        max_col = CONFIG.get('col')
+        self._core_tip.table = [
+            [f'{num: >2d}', f'{load:0.2f}'][:max_col]
+            for num, load in enumerate(psutil.cpu_percent(percpu=True), 1)
+        ][:max_row]
+        return self._core_tip
 
     def set_percentage(self):
-        """Set percentage of waybar return"""
         self.cargo.percentage = int(psutil.cpu_percent())
-
-    def set_tooltip(self):
-        """Set tooltip for waybar return"""
-        if self.tip_type == 'pids':
-            self.processes()
-            self.cargo.tooltip = self.proc_tip
-        elif self.tip_type == 'processors':
-            self.cores()
-            self.cargo.tooltip = self.core_tip
-        else:
-            self.cores()
-            self.processes()
-            self.cargo.tooltip = self.core_tip + self.proc_tip
 
     def set_class(self):
         self.cargo.class_ = 'cpu'
@@ -88,3 +85,9 @@ class CPUStats(KernelStats):
             self.cargo.percentage and
             (float(self.cargo.percentage) > 75)) else '\uD83E\uDDE0'
         self.cargo.text = f'{icon} {self.cargo.percentage}%'
+
+    def set_tooltip(self):
+        """Set tooltip for waybar return"""
+        tip_form = {'pids': self.proc_tip, 'processors': self.core_tip}
+        self.cargo.tooltip = reduce(lambda x, y: x + tip_form.get(y),
+                                    self.tip_type, WayBarToolTip())

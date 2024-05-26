@@ -1,30 +1,36 @@
-table:
-  colors:
-    title: "#ffafaf"
-    row_name: "#ffffaf"
-    col_name: "#afffaf"
+tooltip:
   max:
     row: 12
-    word: 15
+    col: 10
+  sep: "│"
+  title:
+    color: "#ffafaf"
+    weight: bold
+    underline: double
+  row_name:
+    color: "#ffffaf"
+  col_name:
+    color: "#afffaf"
+  word:
+    clip: 15
+  text:
+    clip: 78
 
 IO:
-  lowest: 0  # recommend: 25
-  tip-type: combined
+  tip_type: disks + pids
 
 processor:
-  lowest: 0  # recomend: $ echo "100/$(nproc)" | bc
-  tip-type: combined
+  # lowest: $ echo "100/$(nproc)" | bc
+  tip_type: processors + pids
 
 memory:
-  lowest: 0  # recommend: 25
-  tip-type: combined
+  tip_type: device + pids
 
 temperature:
-  ambient: 27  # Temperature in degrees Celcius
-  lowest: 0  # This is percent of alarm temperature, not degrees Celcuis
+  ambient: 27  # Temperature in degrees Celsius
 
 netcheck:
   internet: 8.8.8.8  # Google's DNS as an indicator of connection to internet
 
 netio:
-  ignore-below: 1024  # [= 1kB/s] Ignore below this speed (bytes/s)
+  ignore_below: 1024  # [= 1kB/s] Ignore below this speed (bytes/s)

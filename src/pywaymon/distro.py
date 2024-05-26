@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8; mode: python; -*-
 
-# Copyright © 2022, 2023 Pradyumna Paranjape
+# Copyright © 2022-2024 Pradyumna Paranjape
 
 # This file is part of pywaymon.
 
@@ -65,7 +65,7 @@ class DistroUp(KernelStats):
         flatpak_updates = self.check_flatpak_updates()
 
         if dnf_updates + flatpak_updates:
-            self.cargo.tooltip.title = 'AVAILABLE'
+            self.cargo.tooltip.title = 'Available'
             self.cargo.tooltip.col_names = ['ALL', 'DNF', 'FLATPAK']
             self.cargo.tooltip.table = [
                 dnf_updates + flatpak_updates, dnf_updates, flatpak_updates
