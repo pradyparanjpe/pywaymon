@@ -859,6 +859,15 @@ class KernelStats:
                         print('{"text": null}', flush=True)
         return 0
 
+    def show_config(self) -> int:  # pragma: no cover
+        """Print loaded configuration."""
+        self.sense()
+        print('\n'.join(
+            (f'Configuration for {self.mon_name}:', str(self.config), '',
+             'PANGO styles:', str(PANGO.styles), '', 'Sample Output:',
+             str(self.cargo))))
+        return 0
+
     def register_state(self, state: Optional[Sequence[str]] = None):
         """
         Register current state to :attr:`state_file`.

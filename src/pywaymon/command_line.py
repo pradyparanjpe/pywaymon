@@ -44,6 +44,11 @@ def _cli():
         default=None,
         type=float,
         help='Trigger every SEC. "0": call only once and return exit.')
+    parser.add_argument('-c',
+                        '--show-config',
+                        dest='show',
+                        action='store_true',
+                        help='show configuration for the module.')
     parser.add_argument('-t',
                         '--tip-type',
                         metavar='TYPE',

@@ -40,7 +40,7 @@ class NetIOConf(ModConf):
     Do not display text below this rate in bytes.
     Still display the icon to allow hover.
     """
-    promise: float = 0.
+    promise: int = 0
     """Rate in bytes/sec as promised by Internet Service Provider."""
 
 
@@ -74,8 +74,7 @@ class NetIOStats(KernelStats):
         self._last_check: Optional[float] = None
         """Time-stamp of last query"""
 
-        self.promise: float = (self.config.promise if
-                               (promise is None) else promise)
+        self.promise: int = promise or self.config.promise
         """Promised speed in Bytes Per Second"""
 
         self.cargo.tooltip = WayBarToolTip(title=self.mon_name.capitalize(),
@@ -118,8 +117,8 @@ class NetIOStats(KernelStats):
 
     def set_percentage(self):
         """Calculate fraction of promised rate being currently used."""
-        self.cargo.percentage = None if (not self.promise) else (
-            sum(self.rates.values()) / self.promise)
+        self.cargo.percentage = (sum(self.rates.values()) /
+                                 self.promise) if self.promise else None
 
     def set_text(self):
         raw_vals = sum(self.rates.values())

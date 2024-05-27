@@ -36,6 +36,7 @@ def main():
     push_tip = cliargs.pop('push_tip')
     refresh = cliargs.pop('refresh')
     module = cliargs.pop('module')
+    show = cliargs.pop('show')
     mon = {
         'processor': CPUStats,
         'load': CPULoad,
@@ -46,11 +47,14 @@ def main():
         'netcheck': NetState,
         'netio': NetIOStats,
     }[module](**cliargs)
+    if show:
+        print('\n'.join(('Command line arguments:', str(cliargs), '')))
+        return mon.show_config()
     if push_tip:
         direction = 'prev' if push_tip < 0 else 'next'
         data = mon.socket_commands.get(f'{direction} tip', 'refresh')
         return mon.comm(data)
-    elif refresh:
+    if refresh:
         return mon.comm('refresh')
     return mon()
 
