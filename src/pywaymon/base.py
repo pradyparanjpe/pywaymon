@@ -31,10 +31,14 @@ from typing import (Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple,
                     Union)
 
 from pywaymon.errors import TipTypeError, UnitsError
+from pywaymon.pango import PangoCssParser
 from pywaymon.read_config import read_config
 
 CONFIG = read_config()
 """Super-imposed configurations."""
+
+PANGO = PangoCssParser()
+"""Stylize pango with css."""
 
 MAX_ROW = CONFIG.get('tooltip', {}).get('max', {}).get('row')
 """Limit on table rows (from config)."""
@@ -236,8 +240,8 @@ class WayBarToolTip:
         idx_col : Optional[Sequence[int]]
             column numbers which should be formatted as index
         major_axis : {'row', 'column'}
-            row : table is supplied as rows of words (default, fallback)
-            column : table is supplied as columns of words
+            row : table is supplied as rows of cells (default, fallback)
+            column : table is supplied as columns of cells
 
     """
 
@@ -500,41 +504,54 @@ class WayBarToolTip:
                              table=combined_table,
                              idx_col=combined_idx_col)
 
-    def pango(self, text: Any, style: str = 'word', clip: int = 0):
+    def compose(self, text: Any, class_: str, clip: int = 0) -> str:
         """
-        Clip and stylize text using pango span tag.
-
-        Clip text to configured number of characters.
-        Stylize by placing tags at *{}* in `<span {}>text</span>`.
+        :meth:`clip` and :meth:`pywaymon.pango.PangoCssParser.stylize`.
 
         Parameters
         ----------
         text : Any
-            text to stylize, will be converted to string form.
+            text to clip, will be converted to string form.
 
-        style : style
-            Configured style of text. If arbitrary string, it is considered
-            a correctly formatted ('key=value') tag and used as it is.
+        class_ : str
+            style class of text. Referred for configured value.
 
         clip : int
             Clip text to these many characters.
             Default: from CONFIG or leave intact.
-        """
-        _text = str(text)
-        if style in CONFIG['tooltip']:
-            tags = ' '.join(
-                (f'{p_tag}="{p_val}"'
-                 for p_tag, p_val in CONFIG['tooltip'][style].items()
-                 if (p_tag != 'clip')))
-        else:
-            tags = style
 
-        clip = clip or CONFIG['tooltip'].get(style, {}).get('clip')
+        Returns
+        -------
+        str
+            Clipped, stylized string
+        """
+        return PANGO.stylize(self.clip(text, class_, clip), class_)
+
+    def clip(self, text: Any, class_: str, clip: int = 0) -> str:
+        """
+        Clip text to configured number of characters.
+
+        Parameters
+        ----------
+        text : Any
+            text to clip, will be converted to string form.
+
+        class_ : str
+            style class of text. Referred for configured value.
+
+        clip : int
+            Clip text to these many characters.
+            Default: from CONFIG or leave intact.
+
+        Returns
+        -------
+        str
+            Clipped string
+        """
+        clip = clip or CONFIG['tooltip'].get('clip', {}).get(class_)
         if clip:
-            _text = _text[:clip]
-        if not tags:
-            return _text
-        return f'<span {tags}>{_text}</span>'
+            return str(text)[:clip]
+        return str(text)
 
     def repr_grid(self) -> List[List[str]]:
         r"""
@@ -567,9 +584,9 @@ class WayBarToolTip:
         """
         fmt_rep: List[List[str]] = []
         if self.title:
-            fmt_rep.extend(([self.pango(self.title, 'title')], []))
+            fmt_rep.extend(([self.compose(self.title, 'title')], []))
         if self.text:
-            fmt_rep.append([self.pango(self.text, 'text')])
+            fmt_rep.append([self.compose(self.text, 'text')])
         fmt_rep.extend(self.format_table())
         return fmt_rep
 
@@ -577,7 +594,7 @@ class WayBarToolTip:
         """
         Formatted table as list of rows.
 
-        Each row is a list of words (fields)
+        Each row is a list of cells (fields)
         """
         if not self.table:
             return []
@@ -585,7 +602,7 @@ class WayBarToolTip:
         if self.col_names:
             fmt_tab.append(
                 ([''] if self.row_names else []) +
-                [self.pango(name, 'col_name') for name in self.col_names])
+                [self.compose(name, 'col-name') for name in self.col_names])
         # remaining column headers will remain blank anyway
 
         # add row names to table
@@ -600,9 +617,9 @@ class WayBarToolTip:
 
         # format index columns with row_name format
         fmt_tab.extend([[
-            self.pango(word,
-                       ('row_name' if word_idx in self.idx_col else 'word'))
-            for word_idx, word in enumerate(row)
+            self.compose(cell,
+                         ('row-name' if cell_idx in self.idx_col else 'cell'))
+            for cell_idx, cell in enumerate(row)
         ] for row in table])
         return fmt_tab
 

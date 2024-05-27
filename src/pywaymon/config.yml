@@ -1,20 +1,11 @@
 tooltip:
+  sep: "│"
   max:
     row: 12
     col: 10
-  sep: "│"
-  title:
-    color: "#ffafaf"
-    weight: bold
-    underline: double
-  row_name:
-    color: "#ffffaf"
-  col_name:
-    color: "#afffaf"
-  word:
-    clip: 15
-  text:
-    clip: 78
+  clip:
+    cell: 15
+    text: 78
 
 IO:
   tip_type: disks + pids

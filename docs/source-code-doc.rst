@@ -36,6 +36,14 @@ BASE STRUCTURE
    :special-members:
    :exclude-members: __dict__,__weakref__,__init__,__str__,__hash__
 
+TOOLTIP STYLES
+===============
+.. automodule:: pywaymon.pango
+   :members:
+   :special-members:
+   :exclude-members: __dict__,__weakref__,__init__,__str__,__hash__
+
+
 Modules
 =========
 

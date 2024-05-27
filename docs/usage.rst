@@ -167,4 +167,3 @@ Configuration
         "on-scroll-up": "pywaymon -p -1 cpu",
         "on-scroll-down": "pywaymon -p 1 cpu",
       }
-

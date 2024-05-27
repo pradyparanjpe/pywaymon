@@ -123,13 +123,10 @@ class TestTip(unittest.TestCase):
         self.tip.transpose_table()
         self.assertIsNone(self.tip.table)
 
-    def test_pango(self):
-        lang_tag = 'lang="en_IN.utf-8"'
-        self.assertIn(lang_tag, self.tip.pango('test_text', lang_tag))
-        self.assertNotIn(
-            'text', self.tip.pango('some very long text', lang_tag, clip=10))
-        self.assertNotIn('span', self.tip.pango('simple text'))
-        self.assertIn('span color', self.tip.pango('test_text', 'title'))
+    def test_clip(self):
+        long_text = 'Some very Long Text'
+        self.assertEqual(long_text[:10],
+                         self.tip.clip(long_text, class_='cell', clip=10))
 
     def test_repr_grid(self):
         grid = self.tip.repr_grid()
