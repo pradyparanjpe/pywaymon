@@ -130,17 +130,13 @@ Distribution updates monitor.
 Supported
 ^^^^^^^^^^
 
-- dnf
-- flatpak
-
-<Planned>
-^^^^^^^^^^
-- apt
-- zypper
 - apk
+- apt
+- dnf
 - pacman
+- zypper
+- flatpak
 - snap
-- appimages
 
 load
 -----
