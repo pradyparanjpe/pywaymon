@@ -51,29 +51,45 @@ loop_interval
 When set to float value (in seconds), the module assumes  :ref:`daemon mode<daemon_call>` by default with supplied periodicity.
 To force exit after printing a single test output for a module configured with `loop_interval`, the command call ought to be supplied with ``-i 0``.
 
+
+.. _specific_keys:
+
 Specific keys
 ^^^^^^^^^^^^^^
 
 .. table ::
     :class: longtable
 
-    ============= ============ ================================================
-    Module        Variable     Description
-    ============= ============ ================================================
-    netcheck      internet     A known reachable ip address located
-                               in the internet, outside the intranet.
-    temperature   ambient      Average ambient temperature in ℃
-    temperature   alarming     Default alarming temperature in ℃
-    netio         ignore_below Don't display value below this absolute rate.
-    netio         promise      Rate promised by internet service provider (ISP)
-                               in bytes/second.
-    ============= ============ ================================================
-
+    ============= ===== ============ ================================================
+    Module        Type  Variable     Description
+    ============= ===== ============ ================================================
+    temperature   int   ambient      Average ambient temperature in ℃
+    temperature   int   alarming     Default alarming temperature in ℃
+    load                ignore_below Don't display value below these absolute loads.
+                  obj                Keys: 1, 5, 15 min, values: int
+    netio         int   ignore_below Don't display value below this absolute rate.
+    netio         int   promise      Rate promised by internet service provider (ISP)
+                                     in bytes/second.
+    ============= ===== ============ ================================================
 
 .. tip::
-   - ``ignore-below`` is not the same as ``lowest`` as it doesn't check for *percentage*.
+   - ``ignore-below`` is not the same as ``lowest`` as it checks for absolute values, not *percentage*.
    - ISPs usually promise rate in bits/second.
      ``8 bits = 1 byte``
+
+netcheck
+~~~~~~~~~
+
+.. versionadded:: 0.0.3
+
+- ``internet``: A known reachable ip address located in the internet, outside the intranet.
+- ``home_ap``: A space-separated list of IP known to respond to ping, located `at home`.
+- ``work_ap``: A space-separated list of IP known to respond to ping, located `at work`, but not at home.
+- ``hotspot_ap``: A space-separated list of IP known to respond to ping when connected to hotspot.
+- ``home_mac``: A space-separated list of MAC addresses of known to serve AP `at home`.
+- ``work_mac``: A space-separated list of MAC addresses of known to serve AP `at work`.
+- ``hotspot_mac``: A space-separated list of MAC addresses of known to serve AP on hotspot.
+ 
 
 Example
 ========

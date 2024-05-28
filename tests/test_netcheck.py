@@ -63,6 +63,8 @@ class TestNetcheck(unittest.TestCase):
 
     def test_text(self):
         self.seg.set_text()
+        self.assertIsNotNone(self.seg.cargo.text)
+        assert self.seg.cargo.text is not None
         self.assertIn(self.seg.icon, self.seg.cargo.text)
 
     def test_tooltip(self):

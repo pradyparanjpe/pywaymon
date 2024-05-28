@@ -21,4 +21,4 @@
 
 __copyright_years__ = '2022-2024'
 __author__ = 'Pradyumna Paranjape'
-__version__ = '0.0.2'
+__version__ = '0.0.3'

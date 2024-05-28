@@ -27,15 +27,39 @@ import os
 import socket
 import struct
 import subprocess
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 from pywaymon.base import CONFIG, KernelStats, ModConf, WayBarToolTip
+
+
+def envvar(var: str) -> List[str]:
+    """
+    Get value for variable from os environment.
+
+    Parameters
+    ----------
+    var : str
+        os variable name
+
+    Returns
+    -------
+    List[str]
+        variable split by whitespaces
+    """
+    return os.getenv(var, '').split()
 
 
 @dataclass
 class NetCheckConf(ModConf):
     internet: str = '8.8.8.8'
+    home_ap: List[str] = field(default_factory=lambda: envvar('home_ap'))
+    work_ap: List[str] = field(default_factory=lambda: envvar('work_ap'))
+    hotspot_ap: List[str] = field(default_factory=lambda: envvar('hotspot_ap'))
+    home_mac: List[str] = field(default_factory=lambda: envvar('home_mac'))
+    work_mac: List[str] = field(default_factory=lambda: envvar('work_mac'))
+    hotspot_mac: List[str] = field(
+        default_factory=lambda: envvar('hotspot_mac'))
 
 
 class NetState(KernelStats):
@@ -123,24 +147,27 @@ class NetState(KernelStats):
 
         Environment Variables
         ---------------------
-        - ``$home_aps``\ ="HOME_AP1 HOME_AP2 HOME_AP3 ..."
-        - ``$work_aps``\ ="WORK_AP1 WORK_AP2 WORK_AP3 ..."
-        - ``$hotspot_aps``\ ="HOTSPOT_AP1 HOTSPOT_AP2 HOTSPOT_AP3 ..."
-        - ``$home_macs``\ ="HOME_MAC1 HOME_MAC2 HOME_MAC3 ..."
-        - ``$work_macs``\ ="WORK_MAC1 WORK_MAC2 WORK_MAC3 ..."
-        - ``$hotspot_macs``\ ="HOTSPOT_MAC1 HOTSPOT_MAC2 HOTSPOT_MAC3 ..."
+        - ``$home_ap``\ ="HOME_AP1 HOME_AP2 HOME_AP3 ..."
+        - ``$work_ap``\ ="WORK_AP1 WORK_AP2 WORK_AP3 ..."
+        - ``$hotspot_ap``\ ="HOTSPOT_AP1 HOTSPOT_AP2 HOTSPOT_AP3 ..."
+        - ``$home_mac``\ ="HOME_MAC1 HOME_MAC2 HOME_MAC3 ..."
+        - ``$work_mac``\ ="WORK_MAC1 WORK_MAC2 WORK_MAC3 ..."
+        - ``$hotspot_mac``\ ="HOTSPOT_MAC1 HOTSPOT_MAC2 HOTSPOT_MAC3 ..."
 
         """
         if self._buddy is None:
             self._buddy = 'alien'
+            # check by ip
             for known in 'home', 'work', 'hotspot':
-                for idtt in 'ap', 'mac':
-                    # TODO: What about mac?
-                    if any(
-                        (self.ping_target(known_ap) for known_ap in os.getenv(
-                            f'{known}_{idtt}', '').split())):
+                for known_ap in getattr(self.config, known + '_ap'):
+                    if self.ping_target(known_ap):
                         self._buddy = known
                         break
+                if self._buddy != 'alien':
+                    break
+                if (self.ap_mac in getattr(self.config, known + '_mac')):
+                    self._buddy = known
+                    break
         return self._buddy
 
     @buddy.setter
@@ -199,9 +226,10 @@ class NetState(KernelStats):
         del self.zone, self.buddy, self.ip_addr, self.gateway, self.ap_mac
 
     def set_text(self):
-        self.cargo.text = self.icon + ' ' + (self.ip_addr[8:] if
-                                             (self.ip_addr[:8]
-                                              == '192.168.') else self.ip_addr)
+        self.cargo.text = (
+            self.icon + ' ' +
+            (self.ip_addr[8:] if
+             (self.ip_addr[:8] == '192.168.') else self.ip_addr))
 
     def set_class(self):
         self.cargo.class_ = [self.zone, self.buddy]

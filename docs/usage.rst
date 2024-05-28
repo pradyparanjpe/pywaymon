@@ -116,12 +116,8 @@ netcheck
 
 Environment Variables
 ^^^^^^^^^^^^^^^^^^^^^^
-Following variables must be set either as Environment variables in the profile [or <planned> in *pywaymon*\ 's configuration file].
-
-- ``internet_ip``: an IP known to respond to ping, located outside the intranet.
-- ``home_ap``: a list of IP known to respond to ping, located `at home`.
-- ``work_ap``: a list of IP known to respond to ping, located `at work`, but not at home.
-- ``hotspot_ap``: a list of IP known to respond to ping when connected to hotspot.
+  .. removed-in:: 0.0.3
+     Declare known MAC and IPs in :ref:`configuration <specific_keys>` file.
 
 distro
 -------

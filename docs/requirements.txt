@@ -4,5 +4,6 @@ sphinx
 sphinx_rtd_theme
 sphinx_autodoc_typehints
 sphinx-argparse
-sphinx-tabs
 sphinx-mdinclude
+sphinx-removed-in
+sphinx-tabs
