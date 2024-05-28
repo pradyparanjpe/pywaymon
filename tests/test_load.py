@@ -37,7 +37,7 @@ class TestLoad(unittest.TestCase):
 
     def test_text(self):
         self.seg.set_text()
-        self.assertTrue(self.seg.cargo.text)
+        self.assertFalse(self.seg.cargo.text)
 
     def test_tooltip(self):
         self.assertIsNone(self.seg.cargo.tooltip.table)

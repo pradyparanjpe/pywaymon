@@ -23,11 +23,22 @@ CPU Load average for waybar.
 Model: ``uptime``
 """
 
-from typing import Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Dict, Optional
 
 import psutil
 
-from pywaymon.base import KernelStats, WayBarToolTip
+from pywaymon.base import CONFIG, KernelStats, ModConf, WayBarToolTip
+
+
+@dataclass
+class LoadConf(ModConf):
+    ignore_below: Dict[int, float] = field(default_factory=lambda: {
+        1: 0.,
+        5: 0.,
+        15: 0.
+    })
+    """Do not display text below this load."""
 
 
 class CPULoad(KernelStats):
@@ -40,16 +51,26 @@ class CPULoad(KernelStats):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._loads: Optional[Tuple[float, ...]] = None
+        self._loads: Optional[Dict[int, float]] = None
+        self._config: Optional[LoadConf] = None
         self.cargo.tooltip = WayBarToolTip(title=self.mon_name.capitalize(),
                                            col_names=('1 min', '5 min',
                                                       '15 min'))
 
     @property
-    def loads(self):
+    def config(self) -> LoadConf:
+        """Module-specific configuration."""
+        if self._config is None:
+            self._config = LoadConf(**CONFIG.get(self.mon_name, {}))
+        return self._config
+
+    @property
+    def loads(self) -> Optional[Dict[int, float]]:
         """Processor loads"""
         if self._loads is None:
-            self._loads = tuple(round(load, 2) for load in psutil.getloadavg())
+            self._loads = dict(
+                zip((1, 5, 15),
+                    tuple(round(load, 2) for load in psutil.getloadavg())))
         return self._loads
 
     @loads.deleter
@@ -60,10 +81,18 @@ class CPULoad(KernelStats):
         del self.loads
 
     def set_text(self):
-        self.cargo.text = (None if (self.loads is None
-                                    or self.cargo.class_ == 'unloaded') else
+        if (self.loads is None) or all(
+            (self.loads.get(mnt, 0) < (self.config.ignore_below.get(mnt, 0))
+             for mnt in self.loads)):
+            self.cargo.text = None
+            return
+        self.cargo.text = (None if (self.cargo.class_ == 'unloaded') else
                            ('\uD83C\uDFCB' + ' '.join(
-                               (str(load) for load in self.loads))))
+                               (str(load) for load in self.loads.values()))))
+
+    def set_tooltip(self):
+        if self.loads:
+            self.cargo.tooltip.table = [list(self.loads.values())]
 
     def set_class(self):
         """
@@ -84,12 +113,9 @@ class CPULoad(KernelStats):
         if self.loads is None:
             return
         nprocs = psutil.cpu_count() or 1
-        if self.loads[0] > (2 * nprocs):
+        if self.loads[1] > (1 * nprocs):
             self.cargo.class_ = '1 min'
-        elif self.loads[1] > (1.5 * nprocs):
+        elif self.loads[5] > (0.75 * nprocs):
             self.cargo.class_ = '5 min'
-        elif self.loads[2] > (1 * nprocs):
+        elif self.loads[15] > (0.5 * nprocs):
             self.cargo.class_ = '15 min'
-
-    def set_tooltip(self):
-        self.cargo.tooltip.table = self.loads

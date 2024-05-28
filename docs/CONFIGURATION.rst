@@ -116,8 +116,14 @@ This is the Default.
            [temperature]
            ambient = 27  # Temperature in degrees Celsius
 
+           [load.ignore_below]
+           1 = 12  # nprocs
+           5 = 9   # nprocs * 0.75
+           10 = 6  # nprocs * 0.5
+
            [netcheck]
            internet = "8.8.8.8"  # Google's DNS as an indicator of connection to internet
+           home_ap = [ "192.168.1.1" ]
 
            [netio]
            ignore_below = 1_024  # [= 1kB/s] Ignore below this speed (bytes/s)
